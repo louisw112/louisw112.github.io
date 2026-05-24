@@ -1,136 +1,10 @@
-  <!DOCTYPE html>
-<html lang="de">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<meta name="theme-color" content="#1F4E79">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Tri-Tracker">
-<title>Tri-Tracker</title>
-<script src="https://cdn.tailwindcss.com"></script>
-<script crossorigin src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
-<script crossorigin src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
-<script src="https://unpkg.com/@babel/standalone@7.24.7/babel.min.js"></script>
-<style>
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; -webkit-tap-highlight-color: transparent; }
-  #loading { position: fixed; inset: 0; background: linear-gradient(135deg, #1F4E79, #2563eb); color: white; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; text-align: center; }
-  #loading.hidden { display: none; }
-  #loading .emoji { font-size: 48px; margin-bottom: 16px; }
-  #loading .title { font-size: 18px; font-weight: bold; }
-  #loading .subtitle { font-size: 12px; opacity: 0.7; margin-top: 8px; }
-  #loading .error { display: none; margin-top: 24px; background: rgba(0,0,0,0.35); padding: 16px; border-radius: 8px; max-width: 90%; font-family: monospace; font-size: 11px; word-break: break-word; text-align: left; white-space: pre-wrap; }
-  #loading.error-state .spinner, #loading.error-state .subtitle { display: none; }
-  #loading.error-state .error { display: block; }
-  #loading.error-state .title { color: #fca5a5; }
-  .spinner { margin-top: 16px; width: 24px; height: 24px; border: 3px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 0.8s linear infinite; }
-  @keyframes spin { to { transform: rotate(360deg); } }
-</style>
-</head>
-<body>
-<div id="loading">
-  <div class="emoji">🏊🚴🏃</div>
-  <div class="title">Tri-Tracker lädt...</div>
-  <div class="subtitle">Olympic - 30.08.2026</div>
-  <div class="spinner"></div>
-  <div class="error" id="error-msg"></div>
-</div>
-<div id="root"></div>
-<script>
-  window.addEventListener('error', function(e) {
-    var l = document.getElementById('loading');
-    var em = document.getElementById('error-msg');
-    if (l && em && !l.classList.contains('hidden')) {
-      l.classList.add('error-state');
-      em.textContent = 'Fehler: ' + (e.message || 'Unbekannt') + (e.lineno ? ' (Zeile ' + e.lineno + ')' : '');
-    }
-  });
-  window.addEventListener('load', function() {
-    setTimeout(function() {
-      var l = document.getElementById('loading');
-      var em = document.getElementById('error-msg');
-      var missing = [];
-      if (typeof React === 'undefined') missing.push('React');
-      if (typeof ReactDOM === 'undefined') missing.push('ReactDOM');
-      if (typeof Babel === 'undefined') missing.push('Babel');
-      if (missing.length && l && !l.classList.contains('hidden')) {
-        l.classList.add('error-state');
-        em.textContent = 'Bibliotheken nicht geladen: ' + missing.join(', ') + '. Internet OK?';
-      }
-    }, 5000);
-  });
-</script>
-<script type="text/babel" data-presets="env,react">
-try {
-
-const { useState, useEffect, useMemo } = React;
-
-// === SIMPLE INLINE LINE CHART (replaces Recharts) ===
-const SimpleLineChart = ({ data, refLines = [], height = 200, color = '#1d4ed8' }) => {
-  if (!data || data.length === 0) return <div style={{height, display:'flex', alignItems:'center', justifyContent:'center', color:'#94a3b8', fontSize:'12px'}}>Keine Daten</div>;
-  const w = 600, padLeft = 40, padRight = 12, padTop = 12, padBottom = 28;
-  const innerW = w - padLeft - padRight;
-  const innerH = height - padTop - padBottom;
-  const values = data.map(d => d.weight);
-  const allValues = values.concat(refLines.map(r => r.y));
-  const minY = Math.min.apply(null, allValues) - 1;
-  const maxY = Math.max.apply(null, allValues) + 1;
-  const xScale = (i) => padLeft + (data.length <= 1 ? innerW/2 : (i / (data.length - 1)) * innerW);
-  const yScale = (v) => padTop + (1 - (v - minY) / (maxY - minY)) * innerH;
-  const path = data.map((d, i) => (i === 0 ? 'M' : 'L') + xScale(i) + ',' + yScale(d.weight)).join(' ');
-  const ticks = 4;
-  const tickValues = [];
-  for (let i = 0; i <= ticks; i++) tickValues.push(minY + (i / ticks) * (maxY - minY));
-  const xLabelIndices = data.length <= 5 ? data.map((_, i) => i) : [0, Math.floor(data.length / 2), data.length - 1];
-  return (
-    <svg viewBox={'0 0 ' + w + ' ' + height} width="100%" height={height} style={{display:'block'}}>
-      {tickValues.map((v, i) => (
-        <g key={'g'+i}>
-          <line x1={padLeft} y1={yScale(v)} x2={w - padRight} y2={yScale(v)} stroke="#e2e8f0" strokeDasharray="3 3" />
-          <text x={padLeft - 5} y={yScale(v) + 3} fontSize="10" fill="#64748b" textAnchor="end">{v.toFixed(1)}</text>
-        </g>
-      ))}
-      {xLabelIndices.map(i => (
-        <text key={'x'+i} x={xScale(i)} y={height - 8} fontSize="10" fill="#64748b" textAnchor="middle">{data[i].date}</text>
-      ))}
-      {refLines.map((r, i) => (
-        <g key={'r'+i}>
-          <line x1={padLeft} y1={yScale(r.y)} x2={w - padRight} y2={yScale(r.y)} stroke={r.color} strokeDasharray="4 3" strokeWidth="1.5" />
-          {r.label && <text x={w - padRight - 2} y={yScale(r.y) - 3} fontSize="9" fill={r.color} textAnchor="end" fontWeight="600">{r.label} {r.y}</text>}
-        </g>
-      ))}
-      <path d={path} fill="none" stroke={color} strokeWidth="2.5" />
-      {data.map((d, i) => (
-        <circle key={'c'+i} cx={xScale(i)} cy={yScale(d.weight)} r="3.5" fill={color} stroke="white" strokeWidth="1.5" />
-      ))}
-    </svg>
-  );
-};
-
-// === ICON COMPONENTS ===
-const makeIcon = (svgInner) => ({size=18, className=''}) => (
-  <svg width={size} height={size} className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" dangerouslySetInnerHTML={{__html: svgInner}}/>
-);
-const Activity = makeIcon('<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>');
-const Calendar = makeIcon('<rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>');
-const TrendingUp = makeIcon('<polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/>');
-const Dumbbell = makeIcon('<path d="m6.5 6.5 11 11"/><path d="m21 21-1-1"/><path d="m3 3 1 1"/><path d="m18 22 4-4"/><path d="m2 6 4-4"/><path d="m3 10 7-7"/><path d="m14 21 7-7"/>');
-const Waves = makeIcon('<path d="M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5c2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/>');
-const Scale = makeIcon('<path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="M7 21h10"/><path d="M12 3v18"/><path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"/>');
-const FileText = makeIcon('<path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>');
-const Download = makeIcon('<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>');
-const AlertTriangle = makeIcon('<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>');
-const CheckCircle = makeIcon('<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>');
-const Target = makeIcon('<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>');
-const Home = makeIcon('<path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>');
-const BookOpen = makeIcon('<path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>');
-const Apple = makeIcon('<path d="M12 20.94c1.5 0 2.75 1.06 4 1.06 3 0 6-8 6-12.22A4.91 4.91 0 0 0 17 5c-2.22 0-4 1.44-5 2-1-.56-2.78-2-5-2a4.9 4.9 0 0 0-5 4.78C2 14 5 22 8 22c1.25 0 2.5-1.06 4-1.06Z"/><path d="M10 2c1 .5 2 2 2 5"/>');
-const Timer = makeIcon('<line x1="10" y1="2" x2="14" y2="2"/><line x1="12" y1="14" x2="15" y2="11"/><circle cx="12" cy="14" r="8"/>');
-const ChevronRight = makeIcon('<polyline points="9 18 15 12 9 6"/>');
-const ChevronDown = makeIcon('<polyline points="6 9 12 15 18 9"/>');
-const ChevronLeft = makeIcon('<polyline points="15 18 9 12 15 6"/>');
-const Menu = makeIcon('<line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/>');
-const User = makeIcon('<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>');
+import React, { useState, useEffect, useMemo } from 'react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
+import {
+  Activity, Calendar, TrendingUp, Dumbbell, Waves, Scale, FileText, Download,
+  AlertTriangle, CheckCircle, Target, Home, BookOpen, Apple, Timer, ChevronRight,
+  ChevronDown, ChevronLeft, Menu, User
+} from 'lucide-react';
 
 // ============ PLAN DATA ============
 const PLAN_START = new Date('2026-05-12');
@@ -190,7 +64,7 @@ const PLAN_WEEKS = [
       { d: 'Di', date: '26.05.', type: 'moderat', title: 'Schwimmen + Kraft A', dur: '~1,5 h',
         details: ['Schwimmen 40 min: 8×50 m + 2×100 m Versuch', 'Kraft A - progressive Steigerung'] },
       { d: 'Mi', date: '27.05.', type: 'hart', title: 'Rad Intervalle', dur: '60 min',
-        details: ['Rad 60 min: 15 min Z2 + 5×(30 s hart / 90 s locker) + Rest Z2'] },
+        details: ['Rad 60 min: 15 min Z2 (115-150W) + 5×(30s @ >230W / 90s locker @ <130W) + Rest Z2'] },
       { d: 'Do', date: '28.05.', type: 'hart', title: 'Schwimmen + Lauf', dur: '~1,5 h',
         details: ['Schwimmen 45 min: 8×50 m + 2×100 m + beidseitig atmen', 'Lauf 35 min Z2'] },
       { d: 'Fr', date: '29.05.', type: 'rest', title: 'Erholung', dur: '30 min',
@@ -221,7 +95,7 @@ const PLAN_WEEKS = [
       { d: 'Di', date: '09.06.', type: 'moderat', title: 'Schwimmen + Kraft A', dur: '~1,5 h',
         details: ['Schwimmen 50 min: 200 m am Stück versuchen · sonst 4×100 m', 'Kraft A'] },
       { d: 'Mi', date: '10.06.', type: 'hart', title: 'Rad Tempo', dur: '75 min',
-        details: ['Rad 75 min: 15 min Z2 + 5×4 min Tempo (Z3) mit 2 min Z2 + Rest Z2'] },
+        details: ['Rad 75 min: 15 min Z2 (115-150W) + 5×4 min Tempo @ 195-205 W (HF 165-175) mit 2 min Z2 + Rest Z2'] },
       { d: 'Do', date: '11.06.', type: 'hart', title: 'Schwimmen + Lauf', dur: '~1,5 h',
         details: ['Schwimmen 50 min: 6×100 m + Technik', 'Lauf 40 min Z2'] },
       { d: 'Fr', date: '12.06.', type: 'rest', title: 'Erholung', dur: '30 min', details: ['Walk 30 min'] },
@@ -237,7 +111,7 @@ const PLAN_WEEKS = [
       { d: 'Di', date: '16.06.', type: 'moderat', title: 'Schwimmen + Kraft A', dur: '~1,5 h',
         details: ['Schwimmen 55 min: 300 m am Stück + 6×50 m', 'Kraft A'] },
       { d: 'Mi', date: '17.06.', type: 'hart', title: 'Lauf Intervalle', dur: '45 min',
-        details: ['Lauf 45 min: 10 min ein + 8×(1 min Z4 / 90 s Trab) + 10 min aus'] },
+        details: ['Lauf 45 min: 10 min ein + 8×(1 min @ HF 178-185 / 90s Trab @ HF<140) + 10 min aus'] },
       { d: 'Do', date: '18.06.', type: 'moderat', title: 'Schwimmen + Bike', dur: '~1,25 h',
         details: ['Schwimmen 50 min Technik · 8×100 m', 'Rad 35 min Z2 locker'] },
       { d: 'Fr', date: '19.06.', type: 'rest', title: 'Erholung', dur: '30 min', details: ['Walk + Mobility'] },
@@ -254,7 +128,7 @@ const PLAN_WEEKS = [
       { d: 'Di', date: '23.06.', type: 'moderat', title: 'Schwimmen + Kraft A', dur: '~1,5 h',
         details: ['Schwimmen 55 min: 500 m am Stück · sonst 2×300 m', 'Kraft A'] },
       { d: 'Mi', date: '24.06.', type: 'hart', title: 'Rad Schwelle', dur: '80 min',
-        details: ['Rad 80 min: 15 min ein + 5×5 min Z4 mit 2 min Z2 + 10 min aus'] },
+        details: ['Rad 80 min: 15 min ein + 5×5 min @ 210-225 W (HF 176-181, Schwelle) mit 2 min Z2 + 10 min aus'] },
       { d: 'Do', date: '25.06.', type: 'hart', title: 'Schwimmen + Lauf', dur: '~1,75 h',
         details: ['Schwimmen 55 min: 4×200 m + Technik', 'Lauf 45 min Z2'] },
       { d: 'Fr', date: '26.06.', type: 'rest', title: 'Erholung', dur: '30 min', details: ['Walk 30 min'] },
@@ -285,12 +159,12 @@ const PLAN_WEEKS = [
       { d: 'Di', date: '07.07.', type: 'hart', title: 'Schwimmen + Kraft A', dur: '~2 h',
         details: ['Schwimmen 65 min: 750 m am Stück + 4×100 m race-pace', 'Kraft A'] },
       { d: 'Mi', date: '08.07.', type: 'hart', title: 'Lauf Schwelle', dur: '55 min',
-        details: ['Lauf 55 min: 10 min ein + 8×(2 min Z4 / 2 min Trab) + 10 min aus'] },
+        details: ['Lauf 55 min: 10 min ein + 8×(2 min @ HF 178-182 / 2 min Trab @ HF<140) + 10 min aus'] },
       { d: 'Do', date: '09.07.', type: 'hart', title: 'Schwimmen + Rad', dur: '~1,75 h',
         details: ['Schwimmen 60 min: 2×400 m + Technik', 'Rad 45 min Z2'] },
       { d: 'Fr', date: '10.07.', type: 'rest', title: 'Erholung', dur: '30 min', details: ['Walk + Mobility'] },
       { d: 'Sa', date: '11.07.', type: 'hart', title: 'FREIWASSER + Rad', dur: '~2 h',
-        details: ['FREIWASSER 40 min mit Neopren · Orientierung üben · NIE alleine!', 'Rad 75 min Z2'] },
+        details: ['FREIWASSER 40 min mit Neopren · Orientierung üben · NIE alleine!', 'Rad 75 min Z2 @ FatMax 123-145 W (HF 145-160) — optimale Fettverbrennung'] },
       { d: 'So', date: '12.07.', type: 'hart', title: 'BRICK lang', dur: '~2 h',
         details: ['BRICK: Rad 90 min Z2 → Lauf 30 min Z3 (knapp Renn-Pace)'] },
       { d: 'Mo', date: '13.07.', type: 'hart', title: 'Kraft + Lauf', dur: '~1,25 h',
@@ -302,12 +176,12 @@ const PLAN_WEEKS = [
       { d: 'Di', date: '14.07.', type: 'hart', title: 'Schwimmen + Kraft A', dur: '~2 h',
         details: ['Schwimmen 70 min: 1000 m am Stück versuchen', 'Kraft A'] },
       { d: 'Mi', date: '15.07.', type: 'hart', title: 'Rad Schwelle', dur: '90 min',
-        details: ['Rad 90 min: 15 min ein + 5×6 min Z4 mit 3 min Z2 + 15 min aus'] },
+        details: ['Rad 90 min: 15 min ein + 5×6 min @ 210-220 W (HF 176-181) mit 3 min Z2 + 15 min aus'] },
       { d: 'Do', date: '16.07.', type: 'hart', title: 'Schwimmen + Lauf', dur: '~2 h',
         details: ['Schwimmen 65 min: 3×400 m race-pace', 'Lauf 50 min Z2'] },
       { d: 'Fr', date: '17.07.', type: 'rest', title: 'Erholung', dur: '30 min', details: ['Walk · Yoga'] },
       { d: 'Sa', date: '18.07.', type: 'hart', title: 'FREIWASSER + Rad lang', dur: '~2,75 h',
-        details: ['FREIWASSER 45 min · Distanz steigern · gerade Linien üben', 'Rad 100 min Z2'] },
+        details: ['FREIWASSER 45 min · Distanz steigern · gerade Linien üben', 'Rad 100 min Z2 @ FatMax 123-145 W (HF 145-160)'] },
       { d: 'So', date: '19.07.', type: 'hart', title: 'BRICK + Schwimmen', dur: '~2,5 h',
         details: ['BRICK: Rad 75 min Z2 → Lauf 40 min Z2', 'Schwimmen 45 min locker'] },
       { d: 'Mo', date: '20.07.', type: 'moderat', title: 'Kraft B', dur: '40 min', details: ['Kraft B - letzte schwere in Phase 3'] },
@@ -318,7 +192,7 @@ const PLAN_WEEKS = [
       { d: 'Di', date: '21.07.', type: 'hart', title: 'Schwimmen + Kraft leicht', dur: '~2,5 h',
         details: ['Schwimmen 80 min: 1500 m am Stück (= Renn-Distanz!)', 'Kraft A leicht - Erhaltung'] },
       { d: 'Mi', date: '22.07.', type: 'hart', title: 'Lauf race-pace', dur: '65 min',
-        details: ['Lauf 65 min: 15 min ein + 6×3 min Renn-Pace (Z4) mit 2 min Trab + 15 min aus'] },
+        details: ['Lauf 65 min: 15 min ein + 6×3 min @ HF 170-178 (Renn-Pace) mit 2 min Trab @ HF<140 + 15 min aus'] },
       { d: 'Do', date: '23.07.', type: 'hart', title: 'Schwimmen + Rad', dur: '~2 h',
         details: ['Schwimmen 70 min: 4×200 m Renn-Pace + Technik', 'Rad 50 min Z2'] },
       { d: 'Fr', date: '24.07.', type: 'rest', title: 'Erholung', dur: '—', details: ['Pause · Vorbereitung Mini-Tri Sa'] },
@@ -350,7 +224,7 @@ const PLAN_WEEKS = [
       { d: 'Di', date: '04.08.', type: 'hart', title: 'Schwimmen + Kraft A', dur: '~2 h',
         details: ['Schwimmen 75 min: 4×300 m Renn-Pace', 'Kraft A - letzte schwere Einheit'] },
       { d: 'Mi', date: '05.08.', type: 'hart', title: 'Rad race-pace', dur: '80 min',
-        details: ['Rad 80 min: 15 min ein + 3×12 min Renn-Pace (Z3/Z4) mit 5 min Z2 + 10 min aus'] },
+        details: ['Rad 80 min: 15 min ein + 3×12 min @ 180-195 W (Renn-Wattbereich!) mit 5 min Z2 + 10 min aus'] },
       { d: 'Do', date: '06.08.', type: 'hart', title: 'Schwimmen + Lauf race-pace', dur: '~2 h',
         details: ['Schwimmen 65 min: 6×150 m race-pace', 'Lauf 55 min: 10 min ein + 4×1 km Renn-Pace mit 2 min Trab + 10 min aus'] },
       { d: 'Fr', date: '07.08.', type: 'rest', title: 'Ruhetag', dur: '—', details: ['Pause · Material vorbereiten'] },
@@ -425,6 +299,45 @@ const PHASE_MACROS = {
   4: { hart: { kcal: 3500, p: 170, f: 75, c: 540 }, moderat: { kcal: 2850, p: 170, f: 70, c: 390 }, rest: { kcal: 2350, p: 170, f: 70, c: 260 } },
 };
 
+// Persönliche Diagnostik-Werte (Leistungsdiagnostik 21.05.2026)
+const PROFILE_DATA = {
+  hfmax_lauf: 196,
+  hfmax_rad: 188,
+  ias_watt: 150, ias_hf: 154, ias_laktat: 2.5,
+  ians_watt: 203, ians_hf: 175, ians_laktat: 4.2,
+  ftp: 223, ftp_hf: 192,
+  pmax_watt: 250, pmax_hf: 188,
+  vo2max: 42.99,
+  fatmax_low_w: 123, fatmax_high_w: 145, fatmax_low_hf: 145, fatmax_high_hf: 160,
+  erholung: 'befriedigend / Breitensportler',
+  diagnostic_date: '21.05.2026',
+};
+
+const HF_ZONES = {
+  lauf: [
+    { name: 'L1 Recovery', min: 0, max: 138, color: '#94a3b8', desc: 'Locker traben, Regeneration' },
+    { name: 'L2 GA1', min: 138, max: 161, color: '#10b981', desc: 'Grundlage, Long Runs (80% des Trainings!)' },
+    { name: 'L3 GA2', min: 161, max: 175, color: '#f59e0b', desc: 'Tempo – nur sparsam einsetzen' },
+    { name: 'L4 Schwelle', min: 175, max: 182, color: '#f97316', desc: 'Schwellenintervalle (knapp unter Anaeroben Schwelle)' },
+    { name: 'L5 VO2max', min: 182, max: 196, color: '#dc2626', desc: 'Kurze harte Intervalle, VO2max-Training' },
+  ],
+  rad: [
+    { name: 'L1 Recovery', minHf: 95, maxHf: 132, minW: 75, maxW: 115, color: '#94a3b8', desc: 'Aktive Erholung' },
+    { name: 'L2 GA1', minHf: 132, maxHf: 154, minW: 115, maxW: 150, color: '#10b981', desc: 'Grundlage, lange Ausfahrten (80% des Trainings!)' },
+    { name: 'FatMax', minHf: 145, maxHf: 160, minW: 123, maxW: 145, color: '#14b8a6', desc: '⭐ Optimal für Fettverbrennung — Long Rides hier!' },
+    { name: 'L3 GA2', minHf: 154, maxHf: 176, minW: 150, maxW: 208, color: '#f59e0b', desc: 'Tempo – sparsam' },
+    { name: 'L4 Schwelle', minHf: 176, maxHf: 181, minW: 208, maxW: 230, color: '#f97316', desc: 'Schwellenintervalle' },
+    { name: 'L5 VO2max', minHf: 181, maxHf: 188, minW: 230, maxW: 999, color: '#dc2626', desc: 'VO2max-Intervalle (>110% FTP)' },
+  ],
+};
+
+// Renn-Pacing-Empfehlungen (Olympic-Distance basiert auf Diagnostik)
+const RACE_PACING = {
+  rad: { wattLow: 170, wattHigh: 190, desc: '75-85% FTP, knapp unter IAS, aerob bleiben' },
+  lauf: { hfLow: 170, hfHigh: 178, desc: 'Knapp unter IANS, "komfortabel hart"' },
+  expected: '2:35 - 2:50 h Gesamt-Zielzeit',
+};
+
 // ============ HELPERS ============
 const todayISO = () => new Date().toISOString().slice(0, 10);
 const daysBetween = (d1, d2) => Math.floor((new Date(d2) - new Date(d1)) / (1000 * 60 * 60 * 24));
@@ -456,15 +369,18 @@ const getCurrentWeek = () => {
 
 // ============ STORAGE ============
 const useStorage = (key, initial) => {
-  const [value, setValue] = useState(() => {
-    try {
-      const stored = localStorage.getItem(key);
-      return stored ? JSON.parse(stored) : initial;
-    } catch (e) { return initial; }
-  });
-  const save = (newVal) => {
+  const [value, setValue] = useState(initial);
+  useEffect(() => {
+    (async () => {
+      try {
+        const r = await window.storage.get(key);
+        if (r && r.value !== undefined) setValue(JSON.parse(r.value));
+      } catch (e) {}
+    })();
+  }, [key]);
+  const save = async (newVal) => {
     setValue(newVal);
-    try { localStorage.setItem(key, JSON.stringify(newVal)); } catch (e) { console.error(e); }
+    try { await window.storage.set(key, JSON.stringify(newVal)); } catch (e) { console.error(e); }
   };
   return [value, save];
 };
@@ -1003,7 +919,19 @@ const WeightSub = ({ weightLog, setWeightLog }) => {
       {weightLog.length > 0 && (
         <Card>
           <SectionTitle icon={TrendingUp}>Verlauf</SectionTitle>
-          <SimpleLineChart data={chartData} height={200} refLines={[{y:78.2,color:'#94a3b8',label:'Start'},{y:74,color:'#10b981',label:'Ziel'}]} />
+          <div style={{ width: '100%', height: 200 }}>
+            <ResponsiveContainer>
+              <LineChart data={chartData} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                <XAxis dataKey="date" fontSize={10} />
+                <YAxis fontSize={10} domain={['dataMin - 1', 'dataMax + 1']} />
+                <Tooltip />
+                <ReferenceLine y={78.2} stroke="#94a3b8" strokeDasharray="3 3" />
+                <ReferenceLine y={74} stroke="#10b981" strokeDasharray="3 3" />
+                <Line type="monotone" dataKey="weight" stroke="#1d4ed8" strokeWidth={2} dot={{ r: 3 }} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
         </Card>
       )}
       <Card>
@@ -1592,19 +1520,79 @@ const Accordion = ({ title, icon: Icon, children, defaultOpen = false }) => {
 const WissenTab = () => {
   return (
     <div className="space-y-3">
-      <Accordion title="Trainingszonen Z1–Z5" icon={Activity} defaultOpen>
-        <p className="text-xs italic text-slate-600">80 % deines Volumens in Z1/Z2, 20 % in Z3/Z4. Niemals Z5 außer Wettkampf.</p>
+      <Accordion title="Deine HF-Zonen (Diagnostik 21.05.)" icon={Activity} defaultOpen>
+        <p className="text-xs italic text-slate-600 mb-2">Polarisiert trainieren: <strong>80% in L1/L2, 20% in L4/L5, L3 sparsam</strong>. Basis: HFmax Lauf 196, Rad 188, FTP 223 W.</p>
+        <div className="mb-3">
+          <div className="text-xs font-bold text-slate-700 mb-1">🏃 LAUF (HFmax 196)</div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead className="bg-slate-50"><tr><th className="p-1 text-left">Zone</th><th className="p-1">HF</th><th className="p-1 text-left">Zweck</th></tr></thead>
+              <tbody>
+                {HF_ZONES.lauf.map((z, i) => (
+                  <tr key={i} className={i % 2 ? 'border-t bg-slate-50' : 'border-t'}>
+                    <td className="p-1 font-semibold" style={{color: z.color}}>{z.name}</td>
+                    <td className="p-1 text-center font-mono">{z.min === 0 ? '<' + z.max : z.min + '-' + z.max}</td>
+                    <td className="p-1">{z.desc}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div>
+          <div className="text-xs font-bold text-slate-700 mb-1">🚴 RAD (HFmax 188, FTP 223 W)</div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead className="bg-slate-50"><tr><th className="p-1 text-left">Zone</th><th className="p-1">HF</th><th className="p-1">Watt</th><th className="p-1 text-left">Zweck</th></tr></thead>
+              <tbody>
+                {HF_ZONES.rad.map((z, i) => (
+                  <tr key={i} className={i % 2 ? 'border-t bg-slate-50' : 'border-t'}>
+                    <td className="p-1 font-semibold" style={{color: z.color}}>{z.name}</td>
+                    <td className="p-1 text-center font-mono">{z.minHf}-{z.maxHf}</td>
+                    <td className="p-1 text-center font-mono">{z.minW}-{z.maxW > 500 ? '+' : z.maxW}</td>
+                    <td className="p-1">{z.desc}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div className="mt-3 p-2 bg-teal-50 border border-teal-200 rounded text-xs">
+          <strong className="text-teal-800">⭐ FatMax-Sweetspot:</strong> Für Recomp = Long Rides im Bereich 123-145 W (HF 145-160). Maximale Fettverbrennung pro Stunde.
+        </div>
+      </Accordion>
+
+      <Accordion title="Trainingszonen — generelles Gefühl" icon={Activity}>
+        <p className="text-xs italic text-slate-600">Sprech-Test als Backup wenn HF-Messer nicht funktioniert.</p>
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead className="bg-slate-50"><tr><th className="p-1.5">Zone</th><th className="p-1.5 text-left">Gefühl</th><th className="p-1.5 text-left">Atmung</th></tr></thead>
             <tbody>
-              <tr className="border-t"><td className="p-1.5 font-bold text-center">Z1</td><td className="p-1.5">Sehr locker</td><td className="p-1.5">Wie unterhalten</td></tr>
-              <tr className="border-t bg-slate-50"><td className="p-1.5 font-bold text-center">Z2</td><td className="p-1.5">Locker, „könnte ewig"</td><td className="p-1.5">Ganze Sätze</td></tr>
-              <tr className="border-t"><td className="p-1.5 font-bold text-center">Z3</td><td className="p-1.5">Komfortabel-hart</td><td className="p-1.5">5-7 Wörter</td></tr>
-              <tr className="border-t bg-slate-50"><td className="p-1.5 font-bold text-center">Z4</td><td className="p-1.5">Hart, „Schwelle"</td><td className="p-1.5">Einzelne Wörter</td></tr>
-              <tr className="border-t"><td className="p-1.5 font-bold text-center">Z5</td><td className="p-1.5">Sehr hart, max 3-5 min</td><td className="p-1.5">Sprechen unmöglich</td></tr>
+              <tr className="border-t"><td className="p-1.5 font-bold text-center">Z1/L1</td><td className="p-1.5">Sehr locker</td><td className="p-1.5">Wie unterhalten</td></tr>
+              <tr className="border-t bg-slate-50"><td className="p-1.5 font-bold text-center">Z2/L2</td><td className="p-1.5">Locker, „könnte ewig"</td><td className="p-1.5">Ganze Sätze</td></tr>
+              <tr className="border-t"><td className="p-1.5 font-bold text-center">Z3/L3</td><td className="p-1.5">Komfortabel-hart</td><td className="p-1.5">5-7 Wörter</td></tr>
+              <tr className="border-t bg-slate-50"><td className="p-1.5 font-bold text-center">Z4/L4</td><td className="p-1.5">Hart, „Schwelle"</td><td className="p-1.5">Einzelne Wörter</td></tr>
+              <tr className="border-t"><td className="p-1.5 font-bold text-center">Z5/L5</td><td className="p-1.5">Sehr hart, max 3-5 min</td><td className="p-1.5">Sprechen unmöglich</td></tr>
             </tbody>
           </table>
+        </div>
+      </Accordion>
+
+      <Accordion title="Renn-Pacing für 30.08.2026" icon={Target}>
+        <p className="text-xs italic text-slate-600 mb-2">Basierend auf deiner Diagnostik. Realistisches Ziel:</p>
+        <div className="space-y-2 text-xs">
+          <div className="p-2 bg-blue-50 border border-blue-200 rounded">
+            <strong>🏊 Schwimmen 1,5 km:</strong> 26-32 min (Anfänger-Range). Locker bleiben, HF irrelevant durch Adrenalin.
+          </div>
+          <div className="p-2 bg-orange-50 border border-orange-200 rounded">
+            <strong>🚴 Rad 40 km:</strong> 170-190 W (75-85% FTP), knapp unter IAS. Ziel-Zeit: 1:07-1:13 h bei flachem Kurs. <em>Aerob bleiben — Laufen kommt!</em>
+          </div>
+          <div className="p-2 bg-red-50 border border-red-200 rounded">
+            <strong>🏃 Lauf 10 km:</strong> HF 170-178 (knapp unter IANS). Pace ~5:00-5:30/km. Ziel-Zeit: 50-55 min.
+          </div>
+          <div className="p-2 bg-green-50 border border-green-200 rounded font-bold text-center">
+            🎯 Gesamt-Zielzeit: 2:35 - 2:50 h
+          </div>
         </div>
       </Accordion>
 
@@ -1888,11 +1876,26 @@ const MehrTab = ({ weightLog, swimLog, strengthLog, dailyLogs, nutritionLogs, ca
     <div className="space-y-3">
       <Card>
         <SectionTitle icon={User}>Profil</SectionTitle>
-        <div className="grid grid-cols-2 gap-3 text-sm">
+        <div className="grid grid-cols-2 gap-3 text-sm mb-3">
           <div><div className="text-xs text-slate-500">Alter</div><div className="font-semibold">21</div></div>
           <div><div className="text-xs text-slate-500">Größe</div><div className="font-semibold">176 cm</div></div>
           <div><div className="text-xs text-slate-500">Startgewicht</div><div className="font-semibold">78,2 kg</div></div>
           <div><div className="text-xs text-slate-500">BMR</div><div className="font-semibold">1.900 kcal</div></div>
+        </div>
+        <div className="border-t pt-3 mt-1">
+          <div className="text-xs font-bold text-slate-700 mb-2">📊 Leistungsdiagnostik {PROFILE_DATA.diagnostic_date}</div>
+          <div className="grid grid-cols-2 gap-2 text-xs">
+            <div className="p-1.5 bg-slate-50 rounded"><div className="text-slate-500">VO2max</div><div className="font-bold">{PROFILE_DATA.vo2max} ml/kg/min</div></div>
+            <div className="p-1.5 bg-slate-50 rounded"><div className="text-slate-500">FTP</div><div className="font-bold">{PROFILE_DATA.ftp} W</div></div>
+            <div className="p-1.5 bg-slate-50 rounded"><div className="text-slate-500">HFmax Lauf</div><div className="font-bold">{PROFILE_DATA.hfmax_lauf}</div></div>
+            <div className="p-1.5 bg-slate-50 rounded"><div className="text-slate-500">HFmax Rad</div><div className="font-bold">{PROFILE_DATA.hfmax_rad}</div></div>
+            <div className="p-1.5 bg-blue-50 rounded"><div className="text-slate-500">IAS (aerob)</div><div className="font-bold">{PROFILE_DATA.ias_watt} W / HF {PROFILE_DATA.ias_hf}</div></div>
+            <div className="p-1.5 bg-orange-50 rounded"><div className="text-slate-500">IANS (anaerob)</div><div className="font-bold">{PROFILE_DATA.ians_watt} W / HF {PROFILE_DATA.ians_hf}</div></div>
+            <div className="p-1.5 bg-teal-50 rounded col-span-2"><div className="text-slate-500">FatMax-Sweetspot</div><div className="font-bold">{PROFILE_DATA.fatmax_low_w}-{PROFILE_DATA.fatmax_high_w} W (HF {PROFILE_DATA.fatmax_low_hf}-{PROFILE_DATA.fatmax_high_hf})</div></div>
+          </div>
+          <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded p-2 mt-2">
+            <strong>⚠️ Erholungsfähigkeit:</strong> {PROFILE_DATA.erholung}. Nach harten Einheiten 1-2 Tage locker oder Pause. Bei Ruhepuls +7 bpm = Tag entspannen.
+          </div>
         </div>
       </Card>
       <PRsCard swimLog={swimLog} strengthLog={strengthLog} manualPRs={manualPRs} setManualPRs={setManualPRs} />
@@ -1925,7 +1928,7 @@ const MehrTab = ({ weightLog, swimLog, strengthLog, dailyLogs, nutritionLogs, ca
 };
 
 // ============ MAIN APP ============
-function App() {
+export default function App() {
   const [weightLog, setWeightLog] = useStorage('weight-log', []);
   const [swimLog, setSwimLog] = useStorage('swim-log', []);
   const [strengthLog, setStrengthLog] = useStorage('strength-log', []);
@@ -1986,24 +1989,3 @@ function App() {
     </div>
   );
 }
-
-
-const root = ReactDOM.createRoot(document.getElementById('root'));
-root.render(<App />);
-setTimeout(() => {
-  const l = document.getElementById('loading');
-  if (l) l.classList.add('hidden');
-}, 200);
-
-} catch (err) {
-  const l = document.getElementById('loading');
-  const em = document.getElementById('error-msg');
-  if (l && em) {
-    l.classList.add('error-state');
-    em.textContent = 'JS-Fehler: ' + (err.message || err);
-  }
-  console.error('App init error:', err);
-}
-</script>
-</body>
-</html>
